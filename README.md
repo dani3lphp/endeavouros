@@ -32,6 +32,12 @@ sudo pacman -S fish envycontrol msr-tools cpupower fastfetch nodejs npm pnpm vsc
 
 ## NVIDIA Driver Installation
 
+First, check if linux headers are already installed:
+
+```bash
+yay -S linux-headers --needed
+```
+
 For NVIDIA GTX 1050 Ti (or similar older cards), install the appropriate driver:
 
 ```bash

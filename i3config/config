@@ -1,0 +1,279 @@
+# i3 config file - EndeavourOS
+# Cleaned and optimized
+
+#######################
+# Basic Configuration #
+#######################
+
+# Set smaller system tray icons
+exec_always --no-startup-id xsettings-set Net/IconThemeName "Papirus-Dark"
+
+font pango: Noto Sans Regular 10
+set $mod Mod4
+
+# Workspace layout
+workspace_layout default
+
+# Window borders and gaps
+new_window pixel 1
+gaps inner 6
+gaps outer 3
+
+# Use Mouse+$mod to drag floating windows
+floating_modifier $mod
+
+#####################
+# Workspace Definitions #
+#####################
+
+set $ws1 "1:"
+set $ws2 "2:"
+set $ws3 "3:"
+set $ws4 "4:"
+set $ws5 "5:"
+set $ws6 "6"
+set $ws7 "7"
+set $ws8 "8"
+set $ws9 "9"
+set $ws10 "10"
+
+# Switch workspaces
+bindsym $mod+Tab workspace next
+bindsym $mod+Shift+Tab workspace prev
+
+# Switch to workspace (number row)
+bindcode $mod+10    workspace  $ws1
+bindcode $mod+11    workspace  $ws2
+bindcode $mod+12    workspace  $ws3
+bindcode $mod+13    workspace  $ws4
+bindcode $mod+14    workspace  $ws5
+bindcode $mod+15    workspace  $ws6
+bindcode $mod+16    workspace  $ws7
+bindcode $mod+17    workspace  $ws8
+bindcode $mod+18    workspace  $ws9
+bindcode $mod+19    workspace  $ws10
+
+# Switch to workspace (numpad)
+bindcode $mod+87 workspace $ws1
+bindcode $mod+88 workspace $ws2
+bindcode $mod+89 workspace $ws3
+bindcode $mod+83 workspace $ws4
+bindcode $mod+84 workspace $ws5
+bindcode $mod+85 workspace $ws6
+bindcode $mod+79 workspace $ws7
+bindcode $mod+80 workspace $ws8
+bindcode $mod+81 workspace $ws9
+bindcode $mod+90 workspace $ws10
+
+# Move container to workspace (number row)
+bindcode $mod+Shift+10    move container to workspace  $ws1
+bindcode $mod+Shift+11    move container to workspace  $ws2
+bindcode $mod+Shift+12    move container to workspace  $ws3
+bindcode $mod+Shift+13    move container to workspace  $ws4
+bindcode $mod+Shift+14    move container to workspace  $ws5
+bindcode $mod+Shift+15    move container to workspace  $ws6
+bindcode $mod+Shift+16    move container to workspace  $ws7
+bindcode $mod+Shift+17    move container to workspace  $ws8
+bindcode $mod+Shift+18    move container to workspace  $ws9
+bindcode $mod+Shift+19    move container to workspace  $ws10
+
+# Move container to workspace (numpad)
+bindcode $mod+Shift+87   move container to workspace  $ws1
+bindcode $mod+Shift+88   move container to workspace  $ws2
+bindcode $mod+Shift+89   move container to workspace  $ws3
+bindcode $mod+Shift+83   move container to workspace  $ws4
+bindcode $mod+Shift+84   move container to workspace  $ws5
+bindcode $mod+Shift+85   move container to workspace  $ws6
+bindcode $mod+Shift+79   move container to workspace  $ws7
+bindcode $mod+Shift+80   move container to workspace  $ws8
+bindcode $mod+Shift+81   move container to workspace  $ws9
+bindcode $mod+Shift+90   move container to workspace  $ws10
+
+################
+# Key Bindings #
+################
+
+# Terminal
+bindsym $mod+q exec --no-startup-id xfce4-terminal
+
+# Kill focused window
+bindsym $mod+c kill
+
+# Power menu
+bindsym $mod+Shift+e exec --no-startup-id ~/.config/i3/scripts/powermenu
+
+# Lock screen
+bindsym $mod+l exec --no-startup-id ~/.config/i3/scripts/blur-lock
+exec --no-startup-id xss-lock -l ~/.config/i3/scripts/blur-lock
+
+# Reload/restart i3
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+r restart
+
+# Keybindings help
+bindsym F1 exec --no-startup-id ~/.config/i3/scripts/keyhint-2
+
+# Brightness controls
+bindsym XF86MonBrightnessUp exec --no-startup-id ~/.config/i3/scripts/volume_brightness.sh brightness_up
+bindsym XF86MonBrightnessDown exec --no-startup-id ~/.config/i3/scripts/volume_brightness.sh brightness_down
+
+# Focus controls
+bindsym $mod+j focus left
+bindsym $mod+k focus down
+bindsym $mod+w focus up
+bindsym $mod+o focus right
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Move focused window
+bindsym $mod+Shift+j move left
+bindsym $mod+Shift+k move down
+bindsym $mod+Shift+b move up
+bindsym $mod+Shift+o move right
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Split orientation
+bindsym $mod+h split h
+bindsym $mod+v split v
+
+# Fullscreen
+bindsym $mod+f fullscreen toggle
+
+# Layout modes
+bindsym $mod+s layout stacking
+bindsym $mod+g layout tabbed
+bindsym $mod+n layout toggle split
+
+# Toggle floating
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+
+# Focus parent
+bindsym $mod+a focus parent
+
+# New empty workspace
+bindsym $mod+Shift+n exec --no-startup-id ~/.config/i3/scripts/empty_workspace
+
+# Volume controls
+bindsym XF86AudioRaiseVolume exec --no-startup-id ~/.config/i3/scripts/volume_brightness.sh volume_up
+bindsym XF86AudioLowerVolume exec --no-startup-id ~/.config/i3/scripts/volume_brightness.sh volume_down
+bindsym XF86AudioMute exec --no-startup-id ~/.config/i3/scripts/volume_brightness.sh volume_mute
+bindsym $mod+XF86AudioRaiseVolume exec --no-startup-id amixer -D pulse sset Master 1%+ && pkill -RTMIN+1 i3blocks
+bindsym $mod+XF86AudioLowerVolume exec --no-startup-id amixer -D pulse sset Master 1%- && pkill -RTMIN+1 i3blocks
+
+# Mic mute
+bindsym XF86AudioMicMute exec amixer sset Capture toggle
+
+# Media controls
+bindsym XF86AudioPlay exec --no-startup-id playerctl play-pause
+bindsym XF86AudioNext exec --no-startup-id playerctl next
+bindsym XF86AudioPrev exec --no-startup-id playerctl previous
+
+# Audio device switch
+bindsym $mod+p exec --no-startup-id ~/.config/i3/scripts/audio-device-switch
+
+# Application shortcuts
+bindsym $mod+b exec --no-startup-id /usr/bin/firefox
+bindsym $mod+e exec --no-startup-id /usr/bin/thunar
+bindsym Print exec --no-startup-id scrot ~/%Y-%m-%d-%T-screenshot.png && notify-send "Screenshot saved"
+
+# Power profiles
+bindsym $mod+Shift+p exec --no-startup-id ~/.config/i3/scripts/power-profiles
+
+# Rofi launchers
+bindsym $mod+d exec --no-startup-id rofi -modi drun -show drun -config ~/.config/rofi/rofidmenu.rasi
+bindsym $mod+t exec --no-startup-id rofi -show window -config ~/.config/rofi/rofidmenu.rasi
+
+#######################
+# Workspace Assignments #
+#######################
+
+assign [class="Xfce4-terminal"] $ws1
+assign [class="(?i)firefox"] $ws2
+assign [class="Thunar"] $ws3
+assign [class="thunderbird"] $ws4
+assign [class="TelegramDesktop"] $ws5
+
+for_window [class=Xfce4-terminal] focus
+for_window [class=(?i)firefox] focus
+for_window [class=Thunar] focus
+for_window [class=Thunderbird] focus
+for_window [class=TelegramDesktop] focus
+
+##################
+# Floating Rules #
+##################
+
+for_window [class="Yad" instance="yad"] floating enable
+for_window [class="Galculator" instance="galculator"] floating enable
+for_window [class="Blueberry.py" instance="blueberry.py"] floating enable
+for_window [class="Xsane" instance="xsane"] floating enable
+for_window [class="Pavucontrol" instance="pavucontrol"] floating enable
+for_window [class="qt5ct" instance="qt5ct"] floating enable
+for_window [class="Bluetooth-sendto" instance="bluetooth-sendto"] floating enable
+for_window [class="Pamac-manager"] floating enable
+for_window [window_role="About"] floating enable
+for_window [class="urxvt"] border pixel 1
+
+####################
+# Autostart Apps #
+####################
+
+exec_always $HOME/.config/i3/scripts/import-gsettings
+
+# Compositor - Commented out (using envycontrol with nvidia GPU + --force-comp)
+# exec_always --no-startup-id picom -b
+
+exec --no-startup-id /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+exec --no-startup-id dex --autostart --environment i3
+exec --no-startup-id ~/.screenlayout/monitor.sh
+exec --no-startup-id sleep 1 && feh --bg-fill /usr/share/endeavouros/backgrounds/endeavouros-wallpaper.png
+exec --no-startup-id xset s 480 dpms 600 600 600
+exec --no-startup-id /usr/bin/dunst
+
+###############
+# Color Theme #
+###############
+
+set $bg         #1a1d23
+set $fg         #ffffff
+set $accent     #7c3aed
+set $inactive   #2a2e38
+set $urgent     #ef4444
+set $indicator  #a855f7
+
+# Window colors        border      background  text    indicator   child_border
+client.focused          $accent     $accent     $fg     $indicator  $accent
+client.focused_inactive $inactive   $inactive   $fg     $bg         $inactive
+client.unfocused        $bg         $bg         $fg     $bg         $bg
+client.urgent           $urgent     $urgent     $fg     $urgent     $urgent
+
+###########
+# Bar     #
+###########
+
+bar {
+    font pango: Noto Sans Regular 14
+    status_command i3blocks -c ~/.config/i3/i3blocks.conf
+    position bottom
+    height 24
+    tray_padding 3
+    strip_workspace_numbers yes
+
+    colors {
+        background         $bg
+        statusline         $fg
+        separator          #2a2e38
+
+        #                  border      background  text
+        focused_workspace  $accent     $accent     $fg
+        active_workspace   #f59e0b     #f59e0b     #1a1d23
+        inactive_workspace $bg         $bg         #888888
+        urgent_workspace   $urgent     $urgent     $fg
+    }
+}

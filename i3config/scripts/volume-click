@@ -1,0 +1,12 @@
+#!/bin/bash
+# Volume script with click support for pavucontrol
+# Save as: ~/.config/i3/scripts/volume-click
+
+# Handle mouse clicks
+case $BLOCK_BUTTON in
+    1) pavucontrol & ;;  # Left click opens pavucontrol
+    3) pavucontrol & ;;  # Right click also opens pavucontrol
+esac
+
+# Get volume level
+~/.config/i3/scripts/volume

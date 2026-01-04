@@ -6,8 +6,10 @@ A comprehensive guide for setting up EndeavourOS after installation, optimized f
 - [Initial Setup](#initial-setup)
 - [NVIDIA Driver Installation](#nvidia-driver-installation)
 - [Performance Optimization](#performance-optimization)
+- [System Configuration](#system-configuration)
 - [Desktop Environment Setup](#desktop-environment-setup)
 - [Automated Setup Script](#automated-setup-script)
+- [Development Tools](#development-tools)
 - [Troubleshooting](#troubleshooting)
 
 ## Initial Setup
@@ -25,7 +27,7 @@ sudo pacman -Syu
 First, install the necessary packages for your system (these are my personal preferred packages):
 
 ```bash
-yay -S fish envycontrol msr-tools cpupower fastfetch nodejs npm pnpm vscodium-bin flameshot
+sudo pacman -S fish envycontrol msr-tools cpupower fastfetch nodejs npm pnpm vscodium-bin flameshot obs-studio
 ```
 
 ## NVIDIA Driver Installation

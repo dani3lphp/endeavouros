@@ -6,20 +6,11 @@ A comprehensive guide for setting up EndeavourOS after installation, optimized f
 - [Initial Setup](#initial-setup)
 - [NVIDIA Driver Installation](#nvidia-driver-installation)
 - [Performance Optimization](#performance-optimization)
-- [System Configuration](#system-configuration)
 - [Desktop Environment Setup](#desktop-environment-setup)
-- [Development Tools](#development-tools)
+- [Automated Setup Script](#automated-setup-script)
 - [Troubleshooting](#troubleshooting)
 
 ## Initial Setup
-
-### Install Essential Packages
-
-First, install the necessary packages for your system:
-
-```bash
-yay -S fish envycontrol msr-tools cpupower fastfetch nodejs npm pnpm vscodium-bin
-```
 
 ### Update System
 
@@ -27,6 +18,14 @@ Make sure your system is up to date:
 
 ```bash
 sudo pacman -Syu
+```
+
+### Install Essential Packages
+
+First, install the necessary packages for your system (these are my personal preferred packages):
+
+```bash
+yay -S fish envycontrol msr-tools cpupower fastfetch nodejs npm pnpm vscodium-bin flameshot
 ```
 
 ## NVIDIA Driver Installation
@@ -37,6 +36,8 @@ For NVIDIA GTX 1050 Ti (or similar older cards), install the appropriate driver:
 yay -S nvidia-580xx-dkms
 ```
 
+For different cards, newer or older, please consult the [arch wiki page](https://wiki.archlinux.org/title/NVIDIA) or the official [EndeavourOS NVIDIA Drivers wiki](https://discovery.endeavouros.com/nvidia/new-nvidia-driver-installer-nvidia-inst/2022/03/)
+
 ### Configure GPU Management
 
 Switch from integrated to NVIDIA GPU:
@@ -46,7 +47,7 @@ Switch from integrated to NVIDIA GPU:
 sudo envycontrol -q
 
 # Switch to NVIDIA mode
-sudo envycontrol -s nvidia
+sudo envycontrol -s nvidia --force-comp
 
 # Reboot to apply changes
 sudo reboot
@@ -56,7 +57,7 @@ sudo reboot
 
 ### Disable BD PROCHOT (Intel CPU Optimization)
 
-BD PROCHOT (Bi-directional Dynamic Processor Management) can cause performance throttling. Disable it with these steps:
+BD PROCHOT (Bi-directional Dynamic Processor Management) can cause performance throttling. For my specific laptop it does. If you encounter the same throttling problem, you can follow the steps below to fix the automatic BD PROCHOT limitations. Disable it with these steps:
 
 #### Install Required Tools
 ```bash
@@ -139,7 +140,7 @@ sudo systemctl start cpupower.service
 
 ### Systemd-boot Kernel Parameters
 
-Add these parameters to your kernel command line in `/boot/loader/entries/endeavouros.conf`:
+Add these parameters to your kernel command line in `/efi/loader/entries/yourownconfigname.conf`:
 
 ```
 zswap.enabled=1 rhgb quiet mitigations=off
@@ -149,46 +150,48 @@ zswap.enabled=1 rhgb quiet mitigations=off
 
 ### i3 Window Manager Configuration
 
-Update your i3 config with these useful keybindings:
+Configure i3 with the provided configuration files. You can use the automated setup script to copy all configuration files to their appropriate locations (see the [Automated Setup Script](#automated-setup-script) section below).
 
-```bash
-# Edit i3 config
-nano ~/.config/i3/config
-```
-
-**Recommended Keybindings:**
-- `$mod+q` - Open terminal (xfce4-terminal)
-- `$mod+c` - Kill window
-- `$mod+b` - Open browser (Firefox)
-- `$mod+e` - Open file manager (Thunar)
+**ONLY DO THIS IF YOU WANT THE SAME CONFIG AS MINE**
 
 ### Important Note: Avoid Picom
 
-**DO NOT INSTALL PICOM** - It can cause input lag and performance issues when using NVIDIA GPU.
+**DO NOT INSTALL PICOM** - It can cause input lag and performance issues when using NVIDIA GPU if you have an AC power adapter like mine that is either faulty or has lower wattage and doesn't output enough energy for all laptop specs.
 
-### Status Bar Customization
+For example, I have a 120W adapter and it is not enough to power the full laptop, so therefore the BD PROCHOT automatic limitations.
 
-Edit your status bar (polybar, i3blocks, etc.) to your preference for a personalized look.
+**PICOM SHOULD WORK FINE IF YOUR LAPTOP/PC DOESN'T HAVE ANY POWER LIMITATIONS** - So, please consult their official wiki on how to set it up properly if you want to.
 
-## Development Tools
+## Automated Setup Script
 
-### Install Development CLI Tools
+This repository includes a setup script that automates the configuration process by copying the provided configuration files to their appropriate locations in your home directory.
 
-For your development workflow, install these essential tools:
+### What the Script Does
 
-```bash
-# Node.js tools are already installed via yay
-# Additional tools you might want:
-yay -S git docker docker-compose docker-buildx lazygit ripgrep fd fzf bat exa zoxide
-```
+The `setup-dotfiles.sh` script:
 
-### Shell Configuration
+- Copies i3 configuration files (`config`, `i3blocks.conf`) to `~/.config/i3/`
+- Copies the volume-click script to `~/.config/i3/scripts/` and makes it executable
+- Copies the fish configuration file to `~/.config/fish/config.fish`
+- Creates necessary directories if they don't exist
 
-Since you're using Fish shell, consider installing Oh My Fish for enhanced functionality:
+### How to Use the Setup Script
 
-```bash
-curl -sL https://get.oh-my.fish | fish
-```
+1. Make the script executable:
+   ```bash
+   chmod +x setup-dotfiles.sh
+   ```
+
+2. Run the script:
+   ```bash
+   ./setup-dotfiles.sh
+   ```
+
+3. The script will copy all configuration files and display status messages as it works.
+
+4. After running the script, you may need to:
+   - Restart your shell or run `exec fish` for fish changes to take effect
+   - Reload the i3 configuration with Mod+Shift+R or restart i3
 
 ## Troubleshooting
 
@@ -229,4 +232,3 @@ nvidia-smi
 
 ---
 
-**Note:** This guide is tailored for a system with NVIDIA GTX 1050 Ti. Adjust driver installation accordingly for different hardware.

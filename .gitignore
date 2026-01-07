@@ -11,7 +11,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# Backups / exports (don’t commit personal or generated backups)
+# Backups / exports (don't commit personal or generated backups)
 *.bak
 
 # Local backup sessions created by the setup script (runtime output)

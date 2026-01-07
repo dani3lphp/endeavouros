@@ -1,0 +1,25 @@
+#!/bin/bash
+# Battery display script for Polybar
+# Place in: ~/.config/i3/scripts/battery
+
+battery_path="/sys/class/power_supply/BAT0"
+
+if [ ! -d "$battery_path" ]; then
+    # Try BAT1 if BAT0 doesn't exist
+    battery_path="/sys/class/power_supply/BAT1"
+    if [ ! -d "$battery_path" ]; then
+        echo "󰁹 N/A"
+        exit 0
+    fi
+fi
+
+capacity=$(cat "$battery_path/capacity" 2>/dev/null || echo "0")
+status=$(cat "$battery_path/status" 2>/dev/null || echo "Unknown")
+
+# Show charging icon when plugged in, battery icon when not
+if [ "$status" == "Charging" ]; then
+    echo "󰂄 ${capacity}%"
+else
+    echo "󰁹 ${capacity}%"
+fi
+

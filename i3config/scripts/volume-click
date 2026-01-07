@@ -1,12 +1,14 @@
 #!/bin/bash
-# Volume script with click support for pavucontrol
-# Save as: ~/.config/i3/scripts/volume-click
+# Volume display script for Polybar
+# Place in: ~/.config/i3/scripts/volume-click
 
-# Handle mouse clicks
-case $BLOCK_BUTTON in
-    1) pavucontrol & ;;  # Left click opens pavucontrol
-    3) pavucontrol & ;;  # Right click also opens pavucontrol
-esac
+# Get volume percentage and mute status
+volume=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -Po '\d+(?=%)' | head -1)
+muted=$(pactl get-sink-mute @DEFAULT_SINK@ | grep -o 'yes')
 
-# Get volume level
-~/.config/i3/scripts/volume
+if [ "$muted" == "yes" ]; then
+    echo "Muted"
+else
+    echo "$volume%"
+fi
+

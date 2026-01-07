@@ -1,0 +1,20 @@
+#!/bin/bash
+# CPU Temperature display script for Polybar
+# Place in: ~/.config/i3/scripts/temperature
+
+# Try to get CPU temperature from different sources
+if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
+    temp=$(cat /sys/class/thermal/thermal_zone0/temp)
+    temp=$((temp / 1000))
+    echo "${temp}°C"
+elif command -v sensors &> /dev/null; then
+    temp=$(sensors | grep -i 'Core 0' | awk '{print $3}' | sed 's/+//;s/°C//')
+    if [ -n "$temp" ]; then
+        echo "${temp}°C"
+    else
+        echo "N/A"
+    fi
+else
+    echo "N/A"
+fi
+

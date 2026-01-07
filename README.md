@@ -1,242 +1,120 @@
-# EndeavourOS Post-Install Setup Guide
+# EndeavourOS i3 Laptop Setup
 
-A comprehensive guide for setting up EndeavourOS after installation, optimized for gaming and development workflows.
+Menu-driven post-install script + dotfiles for **EndeavourOS (Arch Linux)** running **i3 (X11)**.
 
-## Table of Contents
-- [Initial Setup](#initial-setup)
-- [NVIDIA Driver Installation](#nvidia-driver-installation)
-- [Performance Optimization](#performance-optimization)
-- [System Configuration](#system-configuration)
-- [Desktop Environment Setup](#desktop-environment-setup)
-- [Automated Setup Script](#automated-setup-script)
-- [Development Tools](#development-tools)
-- [Troubleshooting](#troubleshooting)
+This repo is aimed at a *single-user laptop workflow* (gaming + development). It is **safe-by-default** (backs up before overwriting, uses `--needed`, never runs an all-root shell).
 
-## Initial Setup
+## What’s inside
 
-### Update System
+- `setup` — interactive installer/configurator
+- `i3config/` — i3 config + Polybar config + Polybar scripts
+- `fish/` — fish shell config
+- `kitty/` — kitty terminal config
+- `fastfetch/` — fastfetch config
+- `gtk-3.0/` — GTK3 settings
+- `picom.conf` — compositor config (installed to `~/.config/picom.conf`)
 
-Make sure your system is up to date:
+## Quick start
 
-```bash
-sudo pacman -Syu
-```
-
-### Install Essential Packages
-
-First, install the necessary packages for your system (these are my personal preferred packages):
+### 1) Clone
 
 ```bash
-sudo pacman -S fish envycontrol msr-tools cpupower fastfetch nodejs npm pnpm vscodium-bin flameshot obs-studio
+git clone https://github.com/dani3lphp/endeavouros.git
+cd endeavouros
 ```
 
-## NVIDIA Driver Installation
-
-First, check if linux headers are already installed:
+### 2) Run the setup menu
 
 ```bash
-yay -S linux-headers --needed
+chmod +x setup
+./setup
 ```
 
-For NVIDIA GTX 1050 Ti (or similar older cards), install the appropriate driver:
+### Useful flags
 
-```bash
-yay -S nvidia-580xx-dkms
-```
+- Dry run (print actions only):
+  ```bash
+  ./setup --dry-run
+  ```
+- Non-interactive approvals (answer “yes” to prompts):
+  ```bash
+  ./setup --yes
+  ```
 
-For different cards, newer or older, please consult the [arch wiki page](https://wiki.archlinux.org/title/NVIDIA) or the official [EndeavourOS NVIDIA Drivers wiki](https://discovery.endeavouros.com/nvidia/new-nvidia-driver-installer-nvidia-inst/2022/03/)
+## What the script changes (and where)
 
-### Configure GPU Management
+### Backups (important)
 
-Switch from integrated to NVIDIA GPU:
+Before overwriting anything, the script creates a **session backup** here:
 
-```bash
-# Check current mode
-sudo envycontrol -q
+- `~/.config/endeavouros-setup/backups/session_YYYYMMDD_HHMMSS/`
 
-# Switch to NVIDIA mode
-sudo envycontrol -s nvidia --force-comp
+### Dotfiles install paths
 
-# Reboot to apply changes
-sudo reboot
-```
+Everything goes into `~/.config`:
 
-## Performance Optimization
+| Repo path | Installs to |
+|---|---|
+| `i3config/` | `~/.config/i3/` |
+| `i3config/polybar/` | `~/.config/polybar/` |
+| `fish/` | `~/.config/fish/` |
+| `kitty/` | `~/.config/kitty/` |
+| `fastfetch/config.jsonc` | `~/.config/fastfetch/config.jsonc` |
+| `gtk-3.0/` | `~/.config/gtk-3.0/` |
+| `picom.conf` | `~/.config/picom.conf` |
 
-### Disable BD PROCHOT (Intel CPU Optimization)
+## Setup menu guide
 
-BD PROCHOT (Bi-directional Dynamic Processor Management) can cause performance throttling. For my specific laptop it does. If you encounter the same throttling problem, you can follow the steps below to fix the automatic BD PROCHOT limitations. Disable it with these steps:
+When you run `./setup`, you’ll see a main menu similar to:
 
-#### Install Required Tools
-```bash
-sudo pacman -S msr-tools cpupower --needed
-```
+- **Update system** — `sudo pacman -Syu`
+- **Install essential packages** — installs packages required by these dotfiles (plus a few common tools)
+- **Install dotfiles** — copies configs into `~/.config` and makes scripts executable
+- **Bluetooth menu** — scan/pair/connect/disconnect/remove devices
+- **NVIDIA helpers** — installs a limited, safer set of driver options
+- **EnvyControl** — switch GPU modes (`integrated` / `hybrid` / `nvidia`)
+- **Performance tweaks (dangerous)** — laptop-specific tuning (opt-in)
+- **Run complete setup** — recommended “do the common things” workflow
 
-#### Immediate Application
-```bash
-# Load MSR module
-sudo modprobe msr
+## Bluetooth (how to use)
 
-# Disable BD PROCHOT
-sudo wrmsr -a 0x1FC 0x400
+1. Run `./setup`
+2. Open **Bluetooth menu**
+3. Choose **Turn on / configure** (enables `bluetooth.service` and sets AutoEnable)
+4. **Scan** → pick device number → **Pair** → **Connect**
 
-# Set performance EPP (Speed Shift)
-echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference
+Notes:
+- The pairing flow auto-accepts common confirmation prompts.
+- Devices don’t auto-connect on boot by default (manual connect each session).
 
-# Enable Turbo
-echo 0 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
+## Polybar
 
-# Set performance governor
-sudo cpupower frequency-set --governor performance
+- Polybar is launched by i3 via `~/.config/polybar/launch.sh`.
+- The repo includes these Polybar scripts (installed into `~/.config/i3/scripts/`):
+  - `temperature`
+  - `volume-click`
+  - `battery`
 
-# Verify changes
-watch -n 1 "cat /proc/cpuinfo | grep MHz"
-```
+## i3 keybindings (cheatsheet)
 
-#### Make Changes Persistent
+`$mod` is **Super/Windows**.
 
-Create systemd services to apply these settings on boot:
+- Terminal: `$mod+q` (kitty)
+- Kill window: `$mod+c`
+- Reload i3: `$mod+Shift+c`
+- Restart i3: `$mod+Shift+r`
+- Screenshot GUI: `$mod+Shift+s` (flameshot)
 
-**Create BD PROCHOT Disable Service:**
-```bash
-sudo nano /etc/systemd/system/disable-bdprochot.service
-```
-
-Add the following content:
-```ini
-[Unit]
-Description=Disable BD PROCHOT
-After=multi-user.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/fish -c '/usr/bin/modprobe msr && /usr/bin/wrmsr -a 0x1FC 0x400'
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Create Turbo and Performance Service:**
-```bash
-sudo nano /etc/systemd/system/turbo-enable.service
-```
-
-Add the following content:
-```ini
-[Unit]
-Description=Enable CPU Turbo and Performance
-After=multi-user.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/fish -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference'
-ExecStart=/usr/bin/fish -c 'echo 0 | tee /sys/devices/system/cpu/intel_pstate/no_turbo'
-ExecStart=/usr/bin/cpupower frequency-set --governor performance
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Enable Services:**
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable disable-bdprochot.service
-sudo systemctl enable turbo-enable.service
-sudo systemctl enable cpupower.service
-sudo systemctl start cpupower.service
-```
-
-### Systemd-boot Kernel Parameters
-
-Add these parameters to your kernel command line in `/efi/loader/entries/yourownconfigname.conf`:
-
-```
-zswap.enabled=1 rhgb quiet mitigations=off
-```
-
-## Desktop Environment Setup
-
-### i3 Window Manager Configuration
-
-Configure i3 with the provided configuration files. You can use the automated setup script to copy all configuration files to their appropriate locations (see the [Automated Setup Script](#automated-setup-script) section below).
-
-**ONLY DO THIS IF YOU WANT THE SAME CONFIG AS MINE**
-
-### Important Note: Avoid Picom
-
-**DO NOT INSTALL PICOM** - It can cause input lag and performance issues when using NVIDIA GPU if you have an AC power adapter like mine that is either faulty or has lower wattage and doesn't output enough energy for all laptop specs.
-
-For example, I have a 120W adapter and it is not enough to power the full laptop, so therefore the BD PROCHOT automatic limitations.
-
-**PICOM SHOULD WORK FINE IF YOUR LAPTOP/PC DOESN'T HAVE ANY POWER LIMITATIONS** - So, please consult their official wiki on how to set it up properly if you want to.
-
-## Automated Setup Script
-
-This repository includes a setup script that automates the configuration process by copying the provided configuration files to their appropriate locations in your home directory.
-
-### What the Script Does
-
-The `setup-dotfiles.sh` script:
-
-- Copies i3 configuration files (`config`, `i3blocks.conf`) to `~/.config/i3/`
-- Copies the volume-click script to `~/.config/i3/scripts/` and makes it executable
-- Copies the fish configuration file to `~/.config/fish/config.fish`
-- Creates necessary directories if they don't exist
-
-### How to Use the Setup Script
-
-1. Make the script executable:
-   ```bash
-   chmod +x setup-dotfiles.sh
-   ```
-
-2. Run the script:
-   ```bash
-   ./setup-dotfiles.sh
-   ```
-
-3. The script will copy all configuration files and display status messages as it works.
-
-4. After running the script, you may need to:
-   - Restart your shell or run `exec fish` for fish changes to take effect
-   - Reload the i3 configuration with Mod+Shift+R or restart i3
+If some keybinds don’t work: your i3 config may reference **personal scripts** that are not included in this repo.
 
 ## Troubleshooting
 
-### Common Issues
+- i3 changes not applied: run `i3-msg reload` or press `$mod+Shift+c`
+- Polybar not showing: run `~/.config/polybar/launch.sh`
+- Bluetooth: check `systemctl status bluetooth` and try `blueman-manager`
+- GPU mode changes: reboot is often required
 
-1. **Display Manager Won't Start After NVIDIA Installation**
-   - Ensure you've switched to NVIDIA mode using `envycontrol`
-   - Check that the correct driver is installed
+## Safety notes
 
-2. **Performance Issues**
-   - Verify BD PROCHOT is disabled
-   - Check that CPU governor is set to performance
-   - Ensure no compositor like Picom is running
-
-3. **System Boot Issues**
-   - Check kernel parameters in systemd-boot
-   - Verify all services are enabled properly
-
-### Useful Commands
-
-```bash
-# Check CPU frequency
-watch -n 1 "cat /proc/cpuinfo | grep MHz"
-
-# Monitor system status
-fastfetch
-
-# Check NVIDIA driver status
-nvidia-smi
-```
-
-## Additional Recommendations
-
-- Regularly update your system: `sudo pacman -Syu`
-- Keep your configs backed up
-- Consider setting up automatic updates with `cron` or `systemd timers`
-- Install AUR helper like `yay` if not already installed
-
----
-
+- The performance-tweaks section can write CPU MSR registers (hardware-specific). Only enable it if you understand the risk.
+- NVIDIA driver choices are intentionally limited. For anything else, use the Arch Wiki: https://wiki.archlinux.org/title/NVIDIA

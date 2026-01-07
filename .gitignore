@@ -1,0 +1,24 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Python cache (some scripts/tests may create these)
+__pycache__/
+*.pyc
+
+# Backups / exports (don’t commit personal or generated backups)
+*.bak
+
+# Local backup sessions created by the setup script (runtime output)
+.config/endeavouros-setup/
+
+# Logs
+*.log
+
+# Rovo Dev temporary files
+tmp_rovodev_*

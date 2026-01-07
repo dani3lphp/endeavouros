@@ -1,0 +1,673 @@
+#!/usr/bin/env bash
+
+# setup - EndeavourOS i3 post-install setup + dotfiles installer
+# Safe-by-default: uses --needed for packages and makes .bak backups before overwriting files.
+
+set -euo pipefail
+
+# Flags
+DRY_RUN=0
+ASSUME_YES=0
+BACKUP_ROOT="$HOME/.config/endeavouros-setup/backups"
+BACKUP_SESSION_ID="$(date +%Y%m%d_%H%M%S)"
+
+############################
+# UI helpers
+############################
+color() { printf "\033[%sm%s\033[0m" "$1" "$2"; }
+info() { echo -e "$(color '1;34' '[INFO]') $*"; }
+ok()   { echo -e "$(color '1;32' '[ OK ]') $*"; }
+warn() { echo -e "$(color '1;33' '[WARN]') $*"; }
+err()  { echo -e "$(color '1;31' '[ERR ]') $*" >&2; }
+
+die() { err "$*"; exit 1; }
+
+ask_yn() {
+  [[ $ASSUME_YES -eq 1 ]] && return 0
+  local prompt="$1"
+  local default="${2:-y}"
+  local answer
+  if [[ $default == "y" ]]; then
+    read -rp "$(color '1;33' "$prompt [Y/n]: ")" answer
+    [[ -z $answer || $answer =~ ^[Yy] ]]
+  else
+    read -rp "$(color '1;33' "$prompt [y/N]: ")" answer
+    [[ $answer =~ ^[Yy] ]]
+  fi
+}
+
+pause() {
+  read -rp "$(color '1;36' 'Press Enter to continue...')"
+}
+
+clear_screen() {
+  clear
+  info "EndeavourOS i3 Setup Script"
+  echo
+}
+
+############################
+# Backup helpers
+############################
+BACKUP_SESSION_DIR="$BACKUP_ROOT/session_$BACKUP_SESSION_ID"
+
+backup_path_if_exists() {
+  local path="$1"
+  [[ -e "$path" ]] || return 0
+  local backup_subdir="$BACKUP_SESSION_DIR/system$(dirname "$path")"
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would backup: $path -> $backup_subdir"
+    return 0
+  fi
+  mkdir -p "$backup_subdir"
+  sudo cp -a "$path" "$backup_subdir/" || { err "Failed to backup $path"; return 1; }
+  ok "Backed up: $path"
+}
+
+backup_path_if_exists_user() {
+  local path="$1"
+  [[ -e "$path" ]] || return 0
+  local rel_path="${path#$HOME/}"
+  local backup_subdir="$BACKUP_SESSION_DIR/user/$(dirname "$rel_path")"
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would backup: $path -> $backup_subdir"
+    return 0
+  fi
+  mkdir -p "$backup_subdir"
+  cp -a "$path" "$backup_subdir/" || { err "Failed to backup $path"; return 1; }
+  ok "Backed up: $path"
+}
+
+############################
+# Package helpers
+############################
+pacman_install_needed() {
+  local pkgs=("$@")
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would install: ${pkgs[*]}"
+    return 0
+  fi
+  sudo pacman -S --needed --noconfirm "${pkgs[@]}"
+}
+
+ensure_yay() {
+  command -v yay >/dev/null 2>&1 && return 0
+  info "yay not found, installing..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would install yay"
+    return 0
+  fi
+  pacman_install_needed base-devel git
+  local tmp_dir
+  tmp_dir=$(mktemp -d)
+  git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay" || die "Failed to clone yay"
+  cd "$tmp_dir/yay" || die "Failed to cd into yay"
+  makepkg -si --noconfirm || die "Failed to build yay"
+  cd - >/dev/null || true
+  rm -rf "$tmp_dir"
+  ok "yay installed"
+}
+
+yay_install_needed() {
+  local pkgs=("$@")
+  ensure_yay
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would install (AUR): ${pkgs[*]}"
+    return 0
+  fi
+  yay -S --needed --noconfirm "${pkgs[@]}"
+}
+
+############################
+# Dotfiles helpers
+############################
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+copy_file_with_backup() {
+  local src="$1"
+  local dest="$2"
+  backup_path_if_exists_user "$dest"
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would copy: $src -> $dest"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest")"
+  cp "$src" "$dest" || { err "Failed to copy $src to $dest"; return 1; }
+  ok "Installed: $dest"
+}
+
+copy_dir_contents_with_backup() {
+  local src_dir="$1"
+  local dest_dir="$2"
+  [[ -d "$src_dir" ]] || { err "Source dir not found: $src_dir"; return 1; }
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would copy contents of $src_dir -> $dest_dir"
+    return 0
+  fi
+  mkdir -p "$dest_dir"
+  for item in "$src_dir"/*; do
+    [[ -e "$item" ]] || continue
+    local base
+    base="$(basename "$item")"
+    backup_path_if_exists_user "$dest_dir/$base"
+    cp -r "$item" "$dest_dir/" || { err "Failed to copy $item"; return 1; }
+  done
+  ok "Installed contents: $dest_dir"
+}
+
+############################
+# Dotfiles installation
+############################
+setup_i3() {
+  clear_screen
+  info "Installing i3 config..."
+  copy_file_with_backup "$SCRIPT_DIR/i3config/config" "$HOME/.config/i3/config"
+  copy_dir_contents_with_backup "$SCRIPT_DIR/i3config/polybar" "$HOME/.config/polybar"
+  mkdir -p "$HOME/.config/i3/scripts"
+  for script in "$SCRIPT_DIR/i3config/scripts"/*; do
+    [[ -f "$script" ]] || continue
+    local base
+    base="$(basename "$script")"
+    copy_file_with_backup "$script" "$HOME/.config/i3/scripts/$base"
+    chmod +x "$HOME/.config/i3/scripts/$base" 2>/dev/null || true
+  done
+  if [[ -f "$HOME/.config/i3/i3blocks.conf" ]]; then
+    info "Removing old i3blocks config (replaced by Polybar)..."
+    rm -f "$HOME/.config/i3/i3blocks.conf"
+  fi
+  if command -v i3blocks >/dev/null 2>&1; then
+    info "i3blocks detected, removing (replaced by Polybar)..."
+    sudo pacman -Rns --noconfirm i3blocks 2>/dev/null || true
+  fi
+  ok "i3 config installed"
+  pause
+}
+
+setup_fish() {
+  clear_screen
+  info "Installing fish config..."
+  copy_file_with_backup "$SCRIPT_DIR/fish/config.fish" "$HOME/.config/fish/config.fish"
+  ok "fish config installed"
+  pause
+}
+
+setup_kitty() {
+  clear_screen
+  info "Installing kitty config..."
+  copy_dir_contents_with_backup "$SCRIPT_DIR/kitty" "$HOME/.config/kitty"
+  ok "kitty config installed"
+  pause
+}
+
+setup_fastfetch() {
+  clear_screen
+  info "Installing fastfetch config..."
+  copy_file_with_backup "$SCRIPT_DIR/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+  ok "fastfetch config installed"
+  pause
+}
+
+setup_gtk3() {
+  clear_screen
+  info "Installing GTK3 config..."
+  copy_dir_contents_with_backup "$SCRIPT_DIR/gtk-3.0" "$HOME/.config/gtk-3.0"
+  ok "GTK3 config installed"
+  pause
+}
+
+setup_all_dotfiles() {
+  clear_screen
+  info "Installing all dotfiles..."
+  setup_i3
+  setup_fish
+  setup_kitty
+  setup_fastfetch
+  setup_gtk3
+  copy_file_with_backup "$SCRIPT_DIR/picom.conf" "$HOME/.config/picom.conf"
+  ok "All dotfiles installed"
+  pause
+}
+
+############################
+# Package installation
+############################
+update_system() {
+  clear_screen
+  info "Updating system..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would run: sudo pacman -Syu"
+    pause
+    return 0
+  fi
+  sudo pacman -Syu || { err "System update failed"; pause; return 1; }
+  ok "System updated"
+  pause
+}
+
+install_essential_packages() {
+  clear_screen
+  info "Installing essential packages..."
+  local pkgs=(
+    polybar pavucontrol acpi lm_sensors
+    fish kitty
+    nodejs npm pnpm
+    msr-tools cpupower
+    fastfetch flameshot chromium
+    ttf-jetbrains-mono-nerd
+  )
+  pacman_install_needed "${pkgs[@]}" || { err "Package installation failed"; pause; return 1; }
+  local aur_pkgs=(vscodium-bin)
+  yay_install_needed "${aur_pkgs[@]}" || { err "AUR package installation failed"; pause; return 1; }
+  ok "Essential packages installed"
+  pause
+}
+
+############################
+# NVIDIA drivers
+############################
+nvidia_driver_installed() {
+  command -v nvidia-smi >/dev/null 2>&1 && return 0
+  pacman -Qs '^nvidia' >/dev/null 2>&1 && return 0
+  return 1
+}
+
+install_nvidia_drivers_menu() {
+  clear_screen
+  info "NVIDIA Driver Installation"
+  echo
+  warn "This menu provides LIMITED driver options."
+  warn "For full control, see: https://wiki.archlinux.org/title/NVIDIA"
+  echo
+  echo "1) nvidia-open-dkms (recommended for newer cards)"
+  echo "2) nvidia-580xx-dkms (for older cards like GTX 1050 Ti)"
+  echo "3) nvidia-inst (auto-detect)"
+  echo "4) Back to main menu"
+  echo
+  read -rp "$(color '1;33' 'Choose option [1-4]: ')" choice
+  case "$choice" in
+    1)
+      pacman_install_needed nvidia-open-dkms nvidia-utils || { err "Driver installation failed"; pause; return 1; }
+      ok "nvidia-open-dkms installed"
+      ;;
+    2)
+      pacman_install_needed nvidia-580xx-dkms nvidia-utils || { err "Driver installation failed"; pause; return 1; }
+      ok "nvidia-580xx-dkms installed"
+      ;;
+    3)
+      yay_install_needed nvidia-inst || { err "nvidia-inst installation failed"; pause; return 1; }
+      nvidia-inst || { err "nvidia-inst failed"; pause; return 1; }
+      ;;
+    4) return 0 ;;
+    *) err "Invalid option"; pause; return 1 ;;
+  esac
+  pause
+}
+
+ensure_envycontrol_installed() {
+  command -v envycontrol >/dev/null 2>&1 && return 0
+  info "envycontrol not found, installing..."
+  yay_install_needed envycontrol || { err "envycontrol installation failed"; return 1; }
+  ok "envycontrol installed"
+}
+
+envycontrol_menu() {
+  clear_screen
+  ensure_envycontrol_installed || { pause; return 1; }
+  info "EnvyControl GPU Mode Switching"
+  echo
+  if nvidia_driver_installed; then
+    local current_mode
+    current_mode=$(envycontrol --query 2>/dev/null | grep -i "current" | awk '{print $NF}' || echo "unknown")
+    info "Current mode: $current_mode"
+  else
+    warn "NVIDIA driver not detected. Install drivers first."
+  fi
+  echo
+  echo "1) Query current mode"
+  echo "2) Switch to integrated (Intel/AMD only)"
+  echo "3) Switch to hybrid (Intel/AMD + NVIDIA)"
+  echo "4) Switch to nvidia (NVIDIA only)"
+  echo "5) Back to main menu"
+  echo
+  read -rp "$(color '1;33' 'Choose option [1-5]: ')" choice
+  case "$choice" in
+    1)
+      envycontrol --query || { err "Query failed"; pause; return 1; }
+      ;;
+    2)
+      sudo envycontrol -s integrated || { err "Switch failed"; pause; return 1; }
+      ok "Switched to integrated mode (reboot recommended)"
+      ;;
+    3)
+      sudo envycontrol -s hybrid --rtd3 || { err "Switch failed"; pause; return 1; }
+      ok "Switched to hybrid mode (reboot recommended)"
+      ;;
+    4)
+      sudo envycontrol -s nvidia --force-comp --coolbits 24 || { err "Switch failed"; pause; return 1; }
+      ok "Switched to nvidia mode (reboot recommended)"
+      ;;
+    5) return 0 ;;
+    *) err "Invalid option"; pause; return 1 ;;
+  esac
+  pause
+}
+
+############################
+# Bluetooth
+############################
+bluetooth_is_configured() {
+  systemctl is-enabled bluetooth.service >/dev/null 2>&1 && systemctl is-active bluetooth.service >/dev/null 2>&1
+}
+
+bluetooth_turn_on() {
+  clear_screen
+  info "Configuring Bluetooth..."
+  pacman_install_needed bluez bluez-utils blueman || { err "Bluetooth package installation failed"; pause; return 1; }
+  if [[ $DRY_RUN -eq 0 ]]; then
+    sudo systemctl enable bluetooth.service
+    sudo systemctl start bluetooth.service
+    backup_path_if_exists "/etc/bluetooth/main.conf"
+    sudo sed -i 's/^#AutoEnable=.*/AutoEnable=true/' /etc/bluetooth/main.conf
+    sudo systemctl restart bluetooth.service
+  fi
+  ok "Bluetooth enabled and configured"
+  pause
+}
+
+bluetooth_scan_devices() {
+  clear_screen
+  info "Scanning for Bluetooth devices (10 seconds)..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would scan for devices"
+    pause
+    return 0
+  fi
+  bluetoothctl power on >/dev/null 2>&1
+  bluetoothctl scan on &
+  local scan_pid=$!
+  sleep 10
+  kill $scan_pid 2>/dev/null || true
+  bluetoothctl scan off >/dev/null 2>&1
+  echo
+  info "Discovered devices:"
+  bluetoothctl devices | nl -w2 -s'. '
+  pause
+}
+
+bluetooth_select_device_from_list() {
+  local prompt="$1"
+  local devices
+  devices=$(bluetoothctl devices | awk '{print $2}')
+  [[ -z "$devices" ]] && { err "No devices found. Run scan first."; return 1; }
+  echo "$prompt" >&2
+  bluetoothctl devices | nl -w2 -s'. ' >&2
+  read -rp "$(color '1;33' 'Enter device number: ')" choice >&2
+  local mac
+  mac=$(bluetoothctl devices | sed -n "${choice}p" | awk '{print $2}')
+  [[ -z "$mac" ]] && { err "Invalid selection"; return 1; }
+  echo "$mac"
+}
+
+bluetooth_pair_device() {
+  clear_screen
+  local mac
+  mac=$(bluetooth_select_device_from_list "Select device to pair:") || { pause; return 1; }
+  info "Pairing with $mac..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would pair with $mac"
+    pause
+    return 0
+  fi
+  (
+    for i in {1..20}; do
+      sleep 0.3
+      echo "yes"
+    done
+  ) | bluetoothctl pair "$mac" 2>&1 | grep -i "pairing\|successful\|failed" || true
+  bluetoothctl trust "$mac" >/dev/null 2>&1
+  ok "Pairing complete, attempting connection..."
+  bluetoothctl connect "$mac" >/dev/null 2>&1 && ok "Connected to $mac" || warn "Connection failed (try manually)"
+  pause
+}
+
+bluetooth_connect_device() {
+  clear_screen
+  local mac
+  mac=$(bluetooth_select_device_from_list "Select device to connect:") || { pause; return 1; }
+  info "Connecting to $mac..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would connect to $mac"
+    pause
+    return 0
+  fi
+  bluetoothctl connect "$mac" && ok "Connected" || { err "Connection failed"; pause; return 1; }
+  pause
+}
+
+bluetooth_disconnect_device() {
+  clear_screen
+  local mac
+  mac=$(bluetooth_select_device_from_list "Select device to disconnect:") || { pause; return 1; }
+  info "Disconnecting from $mac..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would disconnect from $mac"
+    pause
+    return 0
+  fi
+  bluetoothctl disconnect "$mac" && ok "Disconnected" || { err "Disconnect failed"; pause; return 1; }
+  pause
+}
+
+bluetooth_remove_device() {
+  clear_screen
+  local mac
+  mac=$(bluetooth_select_device_from_list "Select device to remove:") || { pause; return 1; }
+  info "Removing $mac..."
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would remove $mac"
+    pause
+    return 0
+  fi
+  bluetoothctl remove "$mac" && ok "Removed" || { err "Remove failed"; pause; return 1; }
+  pause
+}
+
+bluetooth_menu() {
+  while true; do
+    clear_screen
+    info "Bluetooth Menu"
+    echo
+    if bluetooth_is_configured; then
+      ok "Bluetooth is enabled"
+    else
+      warn "Bluetooth is not configured"
+    fi
+    echo
+    echo "1) Turn on / configure Bluetooth"
+    echo "2) Scan for devices"
+    echo "3) Pair device"
+    echo "4) Connect device"
+    echo "5) Disconnect device"
+    echo "6) Remove device"
+    echo "7) Open blueman-manager (GUI)"
+    echo "8) Back to main menu"
+    echo
+    read -rp "$(color '1;33' 'Choose option [1-8]: ')" choice
+    case "$choice" in
+      1) bluetooth_turn_on ;;
+      2) bluetooth_scan_devices ;;
+      3) bluetooth_pair_device ;;
+      4) bluetooth_connect_device ;;
+      5) bluetooth_disconnect_device ;;
+      6) bluetooth_remove_device ;;
+      7) blueman-manager & ;;
+      8) return 0 ;;
+      *) err "Invalid option"; pause ;;
+    esac
+  done
+}
+
+############################
+# Performance tweaks
+############################
+setup_performance() {
+  clear_screen
+  warn "WARNING: Performance tweaks are hardware-specific and potentially dangerous!"
+  warn "Only proceed if you understand MSR writes and CPU governor changes."
+  echo
+  ask_yn "Continue with performance tweaks?" n || return 0
+  info "Setting up performance tweaks..."
+  pacman_install_needed msr-tools cpupower || { err "Package installation failed"; pause; return 1; }
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "[DRY-RUN] Would configure performance tweaks"
+    pause
+    return 0
+  fi
+  sudo modprobe msr
+  sudo wrmsr -a 0x1FC 0x4005E
+  sudo cpupower frequency-set -g performance
+  echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
+  cat > /tmp/performance-tweaks.service <<'EOF'
+[Unit]
+Description=Performance Tweaks
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/modprobe msr
+ExecStart=/usr/bin/wrmsr -a 0x1FC 0x4005E
+ExecStart=/usr/bin/cpupower frequency-set -g performance
+ExecStart=/bin/bash -c 'echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  backup_path_if_exists "/etc/systemd/system/performance-tweaks.service"
+  sudo mv /tmp/performance-tweaks.service /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable performance-tweaks.service
+  ok "Performance tweaks applied and enabled"
+  pause
+}
+
+############################
+# Complete setup
+############################
+run_complete_setup() {
+  clear_screen
+  info "Running complete setup workflow..."
+  echo
+  warn "This will:"
+  echo "  1. Update system"
+  echo "  2. Install essential packages"
+  echo "  3. Install all dotfiles"
+  echo "  4. Enable Bluetooth"
+  echo
+  ask_yn "Continue?" y || return 0
+  update_system || return 1
+  install_essential_packages || return 1
+  setup_all_dotfiles || return 1
+  bluetooth_turn_on || return 1
+  ok "Complete setup finished!"
+  post_run_hints
+  pause
+}
+
+############################
+# Main menu
+############################
+main_menu() {
+  while true; do
+    clear_screen
+    info "Main Menu"
+    echo
+    echo "1) Update system"
+    echo "2) Install essential packages"
+    echo "3) Install dotfiles"
+    echo "4) NVIDIA drivers"
+    echo "5) EnvyControl (GPU switching)"
+    echo "6) Bluetooth"
+    echo "7) Performance tweaks (dangerous)"
+    echo "8) Run complete setup"
+    echo "9) Exit"
+    echo
+    read -rp "$(color '1;33' 'Choose option [1-9]: ')" choice
+    case "$choice" in
+      1) update_system ;;
+      2) install_essential_packages ;;
+      3) setup_all_dotfiles ;;
+      4) install_nvidia_drivers_menu ;;
+      5) envycontrol_menu ;;
+      6) bluetooth_menu ;;
+      7) setup_performance ;;
+      8) run_complete_setup ;;
+      9) exit 0 ;;
+      *) err "Invalid option"; pause ;;
+    esac
+  done
+}
+
+############################
+# Preflight checks
+############################
+preflight() {
+  command -v bash >/dev/null 2>&1 || die "bash not found"
+  command -v sudo >/dev/null 2>&1 || die "sudo not found"
+  command -v pacman >/dev/null 2>&1 || die "pacman not found (not Arch-based?)"
+  sudo -v || die "sudo authentication failed"
+  if ! grep -qi endeavouros /etc/os-release 2>/dev/null; then
+    warn "This script is designed for EndeavourOS but may work on other Arch-based distros."
+    ask_yn "Continue anyway?" n || exit 0
+  fi
+  if ! command -v i3 >/dev/null 2>&1; then
+    warn "i3 not found. This script is designed for i3 window manager."
+    ask_yn "Continue anyway?" n || exit 0
+  fi
+}
+
+############################
+# Argument parsing
+############################
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run)
+        DRY_RUN=1
+        info "Dry-run mode enabled"
+        shift
+        ;;
+      --yes)
+        ASSUME_YES=1
+        info "Non-interactive mode enabled"
+        shift
+        ;;
+      -h|--help)
+        cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+--dry-run   Print actions without making changes
+--yes       Assume yes for confirmations (still may prompt for sudo password)
+EOF
+        exit 0
+        ;;
+      *)
+        err "Unknown argument: $1"
+        exit 1
+        ;;
+    esac
+  done
+}
+
+post_run_hints() {
+  echo
+  warn "Next steps / hints:"
+  echo "- Reload i3 config: i3-msg reload (or Mod+Shift+R)"
+  echo "- Restart shell to load fish config: exec fish"
+  echo "- If you installed GPU drivers or changed EnvyControl mode, reboot is often required."
+}
+
+
+parse_args "$@"
+preflight
+main_menu

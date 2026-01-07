@@ -8,16 +8,25 @@
 # Set smaller system tray icons
 exec_always --no-startup-id xsettings-set Net/IconThemeName "Papirus-Dark"
 
-font pango: Noto Sans Regular 10
+font pango: JetBrainsMono Nerd Font Mono 12
 set $mod Mod4
 
 # Workspace layout
 workspace_layout default
 
 # Window borders and gaps
-new_window pixel 1
+# Force a visible 2px border for all tiled + floating windows
+default_border pixel 2
+default_floating_border pixel 2
+# Force borders to redraw on focus changes
+for_window [class=".*"] border pixel 2
+new_window pixel 2
+new_float pixel 2
 gaps inner 6
 gaps outer 3
+
+# Focus should follow keyboard/click (not mouse hover), so focused border is consistent
+focus_follows_mouse no
 
 # Use Mouse+$mod to drag floating windows
 floating_modifier $mod
@@ -94,7 +103,7 @@ bindcode $mod+Shift+90   move container to workspace  $ws10
 ################
 
 # Terminal
-bindsym $mod+q exec --no-startup-id xfce4-terminal
+bindsym $mod+q exec --no-startup-id kitty
 
 # Kill focused window
 bindsym $mod+c kill
@@ -163,8 +172,8 @@ bindsym $mod+Shift+n exec --no-startup-id ~/.config/i3/scripts/empty_workspace
 bindsym XF86AudioRaiseVolume exec --no-startup-id ~/.config/i3/scripts/volume_brightness.sh volume_up
 bindsym XF86AudioLowerVolume exec --no-startup-id ~/.config/i3/scripts/volume_brightness.sh volume_down
 bindsym XF86AudioMute exec --no-startup-id ~/.config/i3/scripts/volume_brightness.sh volume_mute
-bindsym $mod+XF86AudioRaiseVolume exec --no-startup-id amixer -D pulse sset Master 1%+ && pkill -RTMIN+1 i3blocks
-bindsym $mod+XF86AudioLowerVolume exec --no-startup-id amixer -D pulse sset Master 1%- && pkill -RTMIN+1 i3blocks
+bindsym $mod+XF86AudioRaiseVolume exec --no-startup-id amixer -D pulse sset Master 1%+
+bindsym $mod+XF86AudioLowerVolume exec --no-startup-id amixer -D pulse sset Master 1%-
 
 # Mic mute
 bindsym XF86AudioMicMute exec amixer sset Capture toggle
@@ -178,7 +187,7 @@ bindsym XF86AudioPrev exec --no-startup-id playerctl previous
 bindsym $mod+p exec --no-startup-id ~/.config/i3/scripts/audio-device-switch
 
 # Application shortcuts
-bindsym $mod+b exec --no-startup-id /usr/bin/firefox
+bindsym $mod+b exec --no-startup-id /usr/bin/chromium
 bindsym $mod+e exec --no-startup-id /usr/bin/thunar
 bindsym Print exec --no-startup-id scrot ~/%Y-%m-%d-%T-screenshot.png && notify-send "Screenshot saved"
 
@@ -193,14 +202,14 @@ bindsym $mod+t exec --no-startup-id rofi -show window -config ~/.config/rofi/rof
 # Workspace Assignments #
 #######################
 
-assign [class="Xfce4-terminal"] $ws1
-assign [class="(?i)firefox"] $ws2
+assign [class="kitty"] $ws1
+assign [class="(?i)chromium"] $ws2
 assign [class="Thunar"] $ws3
 assign [class="thunderbird"] $ws4
 assign [class="TelegramDesktop"] $ws5
 
-for_window [class=Xfce4-terminal] focus
-for_window [class=(?i)firefox] focus
+for_window [class=kitty] focus
+for_window [class=(?i)chromium] focus
 for_window [class=Thunar] focus
 for_window [class=Thunderbird] focus
 for_window [class=TelegramDesktop] focus
@@ -218,7 +227,8 @@ for_window [class="qt5ct" instance="qt5ct"] floating enable
 for_window [class="Bluetooth-sendto" instance="bluetooth-sendto"] floating enable
 for_window [class="Pamac-manager"] floating enable
 for_window [window_role="About"] floating enable
-for_window [class="urxvt"] border pixel 1
+# Keep border sizes consistent across apps
+# for_window [class="urxvt"] border pixel 1
 
 ####################
 # Autostart Apps #
@@ -227,14 +237,24 @@ for_window [class="urxvt"] border pixel 1
 exec_always $HOME/.config/i3/scripts/import-gsettings
 
 # Compositor - Commented out (using envycontrol with nvidia GPU + --force-comp)
-# exec_always --no-startup-id picom -b
+exec_always --no-startup-id picom -b --config ~/.config/picom.conf
+
+# Start Flameshot tray for clipboard handling
+exec --no-startup-id flameshot &
+
+# Mod + Shift + S → selection mode
+bindsym $mod+Shift+s exec --no-startup-id flameshot gui
 
 exec --no-startup-id /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
 exec --no-startup-id dex --autostart --environment i3
 exec --no-startup-id ~/.screenlayout/monitor.sh
-exec --no-startup-id sleep 1 && feh --bg-fill /usr/share/endeavouros/backgrounds/endeavouros-wallpaper.png
+#exec --no-startup-id sleep 1 && feh --bg-fill /usr/share/endeavouros/backgrounds/endeavouros-wallpaper.png
 exec --no-startup-id xset s 480 dpms 600 600 600
 exec --no-startup-id /usr/bin/dunst
+
+# Start Polybar (replaces i3blocks)
+# Note: Polybar launch.sh now handles tray app startup with proper wait logic
+exec_always --no-startup-id ~/.config/polybar/launch.sh
 
 ###############
 # Color Theme #
@@ -246,34 +266,24 @@ set $accent     #7c3aed
 set $inactive   #2a2e38
 set $urgent     #ef4444
 set $indicator  #a855f7
+# High-contrast focus border so it's always visible (especially on terminals)
+set $focus_border #ffffff
 
-# Window colors        border      background  text    indicator   child_border
-client.focused          $accent     $accent     $fg     $indicator  $accent
-client.focused_inactive $inactive   $inactive   $fg     $bg         $inactive
-client.unfocused        $bg         $bg         $fg     $bg         $bg
-client.urgent           $urgent     $urgent     $fg     $urgent     $urgent
+# Window colors        border         background  text    indicator      child_border
+# Keep border/child_border identical so all sides match.
+client.focused          $focus_border  $accent     $fg     $indicator     $focus_border
+client.focused_floating $focus_border  $accent     $fg     $indicator     $focus_border
+client.focused_inactive $inactive      $inactive   $fg     $bg            $inactive
+client.unfocused        $bg            $bg         $fg     $bg            $bg
+client.urgent           $urgent        $urgent     $fg     $urgent        $urgent
 
 ###########
 # Bar     #
 ###########
 
-bar {
-    font pango: Noto Sans Regular 14
-    status_command i3blocks -c ~/.config/i3/i3blocks.conf
-    position bottom
-    height 24
-    tray_padding 3
-    strip_workspace_numbers yes
+# i3bar disabled (using Polybar instead)
+# bar {
+#     status_command i3blocks -c ~/.config/i3/i3blocks.conf
+# }
 
-    colors {
-        background         $bg
-        statusline         $fg
-        separator          #2a2e38
 
-        #                  border      background  text
-        focused_workspace  $accent     $accent     $fg
-        active_workspace   #f59e0b     #f59e0b     #1a1d23
-        inactive_workspace $bg         $bg         #888888
-        urgent_workspace   $urgent     $urgent     $fg
-    }
-}

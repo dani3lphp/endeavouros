@@ -4,7 +4,7 @@ Menu-driven post-install script + dotfiles for **EndeavourOS (Arch Linux)** runn
 
 This repo is aimed at a *single-user laptop workflow* (gaming + development). It is **safe-by-default** (backs up before overwriting, uses `--needed`, never runs an all-root shell).
 
-## What’s inside
+## What's inside
 
 - `setup` — interactive installer/configurator
 - `i3config/` — i3 config + Polybar config + Polybar scripts
@@ -36,7 +36,7 @@ chmod +x setup
   ```bash
   ./setup --dry-run
   ```
-- Non-interactive approvals (answer “yes” to prompts):
+- Non-interactive approvals (answer "yes" to prompts):
   ```bash
   ./setup --yes
   ```
@@ -65,7 +65,7 @@ Everything goes into `~/.config`:
 
 ## Setup menu guide
 
-When you run `./setup`, you’ll see a main menu similar to:
+When you run `./setup`, you'll see a main menu similar to:
 
 - **Update system** — `sudo pacman -Syu`
 - **Install essential packages** — installs packages required by these dotfiles (plus a few common tools)
@@ -74,7 +74,7 @@ When you run `./setup`, you’ll see a main menu similar to:
 - **NVIDIA helpers** — installs a limited, safer set of driver options
 - **EnvyControl** — switch GPU modes (`integrated` / `hybrid` / `nvidia`)
 - **Performance tweaks (dangerous)** — laptop-specific tuning (opt-in)
-- **Run complete setup** — recommended “do the common things” workflow
+- **Run complete setup** — recommended "do the common things" workflow
 
 ## Bluetooth (how to use)
 
@@ -85,7 +85,7 @@ When you run `./setup`, you’ll see a main menu similar to:
 
 Notes:
 - The pairing flow auto-accepts common confirmation prompts.
-- Devices don’t auto-connect on boot by default (manual connect each session).
+- Devices don't auto-connect on boot by default (manual connect each session).
 
 ## Polybar
 
@@ -105,14 +105,27 @@ Notes:
 - Restart i3: `$mod+Shift+r`
 - Screenshot GUI: `$mod+Shift+s` (flameshot)
 
-If some keybinds don’t work: your i3 config may reference **personal scripts** that are not included in this repo.
+If some keybinds don't work: your i3 config may reference **personal scripts** that are not included in this repo.
+
+## Recent improvements
+
+### System tray fix (Jan 2026)
+Fixed an issue where system tray icons (nm-applet, volumeicon, blueman-applet) wouldn't appear on first boot until workspace switching or i3 reload. The fix includes:
+
+- **Single tray manager**: Only the primary monitor's Polybar instance manages the system tray
+- **Secondary bar config**: Non-primary monitors use a tray-less Polybar configuration
+- **Smart tray detection**: `launch.sh` now polls for `_NET_SYSTEM_TRAY_S0` selection before launching tray apps
+- **Integrated startup**: Tray apps are launched by Polybar's launch script (not i3 config) after tray is confirmed ready
+
+This eliminates the race condition that caused tray initialization failures.
 
 ## Troubleshooting
 
-- i3 changes not applied: run `i3-msg reload` or press `$mod+Shift+c`
-- Polybar not showing: run `~/.config/polybar/launch.sh`
-- Bluetooth: check `systemctl status bluetooth` and try `blueman-manager`
-- GPU mode changes: reboot is often required
+- **System tray icons missing**: Check `/tmp/polybar-*.log` for errors. Run `~/.config/polybar/launch.sh` manually to restart.
+- **i3 changes not applied**: run `i3-msg reload` or press `$mod+Shift+c`
+- **Polybar not showing**: run `~/.config/polybar/launch.sh`
+- **Bluetooth**: check `systemctl status bluetooth` and try `blueman-manager`
+- **GPU mode changes**: reboot is often required
 
 ## Safety notes
 

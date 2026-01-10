@@ -131,3 +131,7 @@ This eliminates the race condition that caused tray initialization failures.
 
 - The performance-tweaks section can write CPU MSR registers (hardware-specific). Only enable it if you understand the risk.
 - NVIDIA driver choices are intentionally limited. For anything else, use the Arch Wiki: https://wiki.archlinux.org/title/NVIDIA
+
+## Status
+
+The setup script is currently not working.
